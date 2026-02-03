@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cocowork | Contracts & Invoices</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="/logo.svg" alt="Cocowork" class="logo" />
+        <div>
+          <h1>Cocowork</h1>
+          <p>Open Office Tables • Contracts • Invoices</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="logoutBtn" class="ghost" hidden>Log out</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section id="authView" class="card auth-card">
+        <div class="auth-columns">
+          <div>
+            <h2>Welcome back</h2>
+            <p class="muted">Sign in to view your contract and monthly invoices.</p>
+            <form id="loginForm" class="form">
+              <label>Email
+                <input type="email" name="email" required />
+              </label>
+              <label>Password
+                <input type="password" name="password" required />
+              </label>
+              <button type="submit" class="primary">Log in</button>
+              <p class="form-error" id="loginError"></p>
+            </form>
+          </div>
+          <div>
+            <h2>New contractor?</h2>
+            <p class="muted">Create an account to start your Cocowork agreement.</p>
+            <form id="registerForm" class="form">
+              <label>Full name
+                <input type="text" name="full_name" required />
+              </label>
+              <label>Email
+                <input type="email" name="email" required />
+              </label>
+              <label>Password
+                <input type="password" name="password" required />
+              </label>
+              <button type="submit" class="secondary">Create account</button>
+              <p class="form-error" id="registerError"></p>
+            </form>
+            <div class="note">
+              Default admin login: <strong>admin@cocowork.local</strong> / <strong>admin123</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contractorView" class="grid" hidden>
+        <div class="card">
+          <h2>Your invoicing profile</h2>
+          <p class="muted">Please complete your company or freelancer details.</p>
+          <form id="profileForm" class="form two-cols">
+            <label>Full name
+              <input type="text" name="full_name" />
+            </label>
+            <label>Company type
+              <select name="company_type">
+                <option value="freelancer">Freelancer</option>
+                <option value="company">Company</option>
+              </select>
+            </label>
+            <label>Company / Freelance name
+              <input type="text" name="company_name" />
+            </label>
+            <label>Tax ID / CIN
+              <input type="text" name="tax_id" />
+            </label>
+            <label>Address
+              <input type="text" name="address" />
+            </label>
+            <label>Phone
+              <input type="text" name="phone" />
+            </label>
+            <label>Bank account
+              <input type="text" name="bank_account" />
+            </label>
+            <button type="submit" class="primary">Save profile</button>
+            <span class="form-success" id="profileSaved"></span>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Your contract</h2>
+          <pre id="contractContent" class="contract"></pre>
+          <div class="sign-row">
+            <div>
+              <p class="muted">Contractor signature</p>
+              <p id="contractorSignature" class="signature"></p>
+            </div>
+            <div>
+              <p class="muted">Cocowork signature</p>
+              <p id="adminSignature" class="signature"></p>
+            </div>
+          </div>
+          <form id="contractSignForm" class="form inline">
+            <input type="text" name="signature" placeholder="Type full name to sign" required />
+            <button type="submit" class="secondary">Sign contract</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Monthly invoices</h2>
+          <table class="table" id="invoiceTable">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Month</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="adminView" class="grid" hidden>
+        <div class="card">
+          <h2>Contractors</h2>
+          <table class="table" id="contractorTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Company</th>
+                <th>Contract</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Selected contractor</h2>
+          <div id="selectedContractor" class="muted">Select a contractor to view details.</div>
+          <div id="selectedDetails" hidden>
+            <div class="detail-grid">
+              <div>
+                <h3>Profile</h3>
+                <div id="profileDetails"></div>
+              </div>
+              <div>
+                <h3>Contract</h3>
+                <pre id="adminContractContent" class="contract"></pre>
+                <div class="sign-row">
+                  <div>
+                    <p class="muted">Contractor signature</p>
+                    <p id="adminContractorSignature" class="signature"></p>
+                  </div>
+                  <div>
+                    <p class="muted">Cocowork signature</p>
+                    <p id="adminAdminSignature" class="signature"></p>
+                  </div>
+                </div>
+                <form id="adminSignForm" class="form inline">
+                  <input type="text" name="signature" placeholder="Type your name" required />
+                  <button type="submit" class="secondary">Sign as Cocowork</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Update contract template</h2>
+          <form id="templateForm" class="form">
+            <textarea name="content" rows="8" placeholder="Paste updated contract here" required></textarea>
+            <label class="checkbox">
+              <input type="checkbox" name="apply" /> Apply to all unsigned contracts
+            </label>
+            <button type="submit" class="primary">Save template</button>
+            <span id="templateSaved" class="form-success"></span>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Generate invoices</h2>
+          <form id="invoiceForm" class="form two-cols">
+            <label>Month (YYYY-MM)
+              <input type="text" name="month" placeholder="2026-02" required />
+            </label>
+            <label>Total amount to split
+              <input type="text" name="total_amount" placeholder="1200" required />
+            </label>
+            <button type="submit" class="primary">Generate</button>
+            <span id="invoiceStatus" class="form-success"></span>
+          </form>
+          <div class="subsection">
+            <h3>Invoices</h3>
+            <table class="table" id="adminInvoiceTable">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Contractor</th>
+                  <th>Month</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
