@@ -193,7 +193,7 @@ function renderContractorTable() {
         selectContractor(contractor.id);
       });
       contractorTable.appendChild(row);
-  }
+  });
 }
 
 async function selectContractor(userId) {
