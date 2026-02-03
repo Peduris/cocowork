@@ -62,6 +62,8 @@ def init_db():
             address TEXT,
             phone TEXT,
             bank_account TEXT,
+            vat_payer INTEGER DEFAULT 0,
+            vat_rate INTEGER DEFAULT 0,
             updated_at TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
@@ -104,6 +106,8 @@ def init_db():
             user_id INTEGER NOT NULL,
             month TEXT NOT NULL,
             amount_cents INTEGER NOT NULL,
+            vat_cents INTEGER NOT NULL DEFAULT 0,
+            total_cents INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id)
@@ -115,6 +119,22 @@ def init_db():
             next_number INTEGER NOT NULL
         )
     """)
+    conn.commit()
+
+    # Lightweight migrations for existing DBs
+    cur.execute("PRAGMA table_info(profiles)")
+    profile_cols = {row[1] for row in cur.fetchall()}
+    if "vat_payer" not in profile_cols:
+        cur.execute("ALTER TABLE profiles ADD COLUMN vat_payer INTEGER DEFAULT 0")
+    if "vat_rate" not in profile_cols:
+        cur.execute("ALTER TABLE profiles ADD COLUMN vat_rate INTEGER DEFAULT 0")
+
+    cur.execute("PRAGMA table_info(invoices)")
+    invoice_cols = {row[1] for row in cur.fetchall()}
+    if "vat_cents" not in invoice_cols:
+        cur.execute("ALTER TABLE invoices ADD COLUMN vat_cents INTEGER NOT NULL DEFAULT 0")
+    if "total_cents" not in invoice_cols:
+        cur.execute("ALTER TABLE invoices ADD COLUMN total_cents INTEGER NOT NULL DEFAULT 0")
     conn.commit()
 
     cur.execute("SELECT id FROM contract_templates WHERE active = 1 ORDER BY id DESC LIMIT 1")
@@ -400,12 +420,18 @@ class handler(BaseHTTPRequestHandler):
             p = cur.fetchone()
             cur.execute("SELECT * FROM contracts WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,))
             c = cur.fetchone()
+            cur.execute(
+                "SELECT * FROM invoices WHERE user_id = ? ORDER BY month DESC, id DESC",
+                (user_id,),
+            )
+            invoices = [dict(r) for r in cur.fetchall()]
             conn.close()
             send_json(self, {
                 "ok": True,
                 "user": dict(u) if u else None,
                 "profile": dict(p) if p else None,
                 "contract": dict(c) if c else None,
+                "invoices": invoices,
             })
             return
 
@@ -457,6 +483,7 @@ class handler(BaseHTTPRequestHandler):
         if path == "/api/login":
             email = (data.get("email") or "").strip().lower()
             password = data.get("password") or ""
+            role = (data.get("role") or "").strip()
             conn = db_connect()
             cur = conn.cursor()
             cur.execute("SELECT * FROM users WHERE email = ?", (email,))
@@ -464,6 +491,10 @@ class handler(BaseHTTPRequestHandler):
             if not row or not verify_password(password, row["password_hash"]):
                 conn.close()
                 send_json(self, {"ok": False, "error": "Invalid credentials"}, HTTPStatus.UNAUTHORIZED)
+                return
+            if role and row["role"] != role:
+                conn.close()
+                send_json(self, {"ok": False, "error": "Wrong portal for this account"}, HTTPStatus.UNAUTHORIZED)
                 return
             token = create_session(conn, row["id"])
             conn.commit()
@@ -500,11 +531,16 @@ class handler(BaseHTTPRequestHandler):
                 return
             conn = db_connect()
             ensure_profile(conn, user["id"])
+            vat_payer = 1 if str(data.get("vat_payer")).lower() in ("1", "true", "on", "yes") else 0
+            try:
+                vat_rate = int(data.get("vat_rate") or 0)
+            except ValueError:
+                vat_rate = 0
             conn.execute(
                 """
                 UPDATE profiles SET
                     full_name = ?, company_type = ?, company_name = ?, tax_id = ?,
-                    address = ?, phone = ?, bank_account = ?, updated_at = ?
+                    address = ?, phone = ?, bank_account = ?, vat_payer = ?, vat_rate = ?, updated_at = ?
                 WHERE user_id = ?
                 """,
                 (
@@ -515,6 +551,8 @@ class handler(BaseHTTPRequestHandler):
                     data.get("address"),
                     data.get("phone"),
                     data.get("bank_account"),
+                    vat_payer,
+                    vat_rate,
                     now_iso(),
                     user["id"],
                 ),
@@ -596,6 +634,44 @@ class handler(BaseHTTPRequestHandler):
             send_json(self, {"ok": True})
             return
 
+        if path == "/api/admin/contractor/contract/update":
+            if not user or user["role"] != "admin":
+                send_json(self, {"ok": False, "error": "Not authorized"}, HTTPStatus.FORBIDDEN)
+                return
+            user_id = int(data.get("user_id") or 0)
+            content = (data.get("content") or "").strip()
+            reset_signatures = bool(data.get("reset_signatures", True))
+            if not user_id or not content:
+                send_json(self, {"ok": False, "error": "User and content required"}, HTTPStatus.BAD_REQUEST)
+                return
+            conn = db_connect()
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM contracts WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,))
+            contract = cur.fetchone()
+            if not contract:
+                conn.close()
+                send_json(self, {"ok": False, "error": "No contract"}, HTTPStatus.NOT_FOUND)
+                return
+            if reset_signatures:
+                cur.execute(
+                    """
+                    UPDATE contracts
+                    SET content = ?, contractor_signature = NULL, contractor_signed_at = NULL,
+                        admin_signature = NULL, admin_signed_at = NULL, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (content, now_iso(), contract["id"]),
+                )
+            else:
+                cur.execute(
+                    "UPDATE contracts SET content = ?, updated_at = ? WHERE id = ?",
+                    (content, now_iso(), contract["id"]),
+                )
+            conn.commit()
+            conn.close()
+            send_json(self, {"ok": True})
+            return
+
         if path == "/api/admin/invoices/generate":
             if not user or user["role"] != "admin":
                 send_json(self, {"ok": False, "error": "Not authorized"}, HTTPStatus.FORBIDDEN)
@@ -612,8 +688,16 @@ class handler(BaseHTTPRequestHandler):
                 return
             conn = db_connect()
             cur = conn.cursor()
-            cur.execute("SELECT id FROM users WHERE role = 'contractor' ORDER BY id ASC")
-            contractors = [r["id"] for r in cur.fetchall()]
+            cur.execute(
+                """
+                SELECT users.id, profiles.vat_payer, profiles.vat_rate
+                FROM users
+                LEFT JOIN profiles ON profiles.user_id = users.id
+                WHERE users.role = 'contractor'
+                ORDER BY users.id ASC
+                """
+            )
+            contractors = cur.fetchall()
             if not contractors:
                 conn.close()
                 send_json(self, {"ok": False, "error": "No contractors"}, HTTPStatus.BAD_REQUEST)
@@ -625,16 +709,21 @@ class handler(BaseHTTPRequestHandler):
             seq = cur.fetchone()
             next_number = seq["next_number"] if seq else 1
 
-            for i, user_id in enumerate(contractors):
+            for i, row in enumerate(contractors):
+                user_id = row["id"]
                 amount_cents = base + (1 if i < remainder else 0)
+                vat_rate = int(row["vat_rate"] or 0)
+                vat_payer = int(row["vat_payer"] or 0)
+                vat_cents = (amount_cents * vat_rate // 100) if vat_payer and vat_rate > 0 else 0
+                total_cents_row = amount_cents + vat_cents
                 invoice_number = f"INV-{month.replace('-', '')}-{next_number:04d}"
                 next_number += 1
                 cur.execute(
                     """
-                    INSERT INTO invoices (invoice_number, user_id, month, amount_cents, status, created_at)
-                    VALUES (?, ?, ?, ?, 'unpaid', ?)
+                    INSERT INTO invoices (invoice_number, user_id, month, amount_cents, vat_cents, total_cents, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'unpaid', ?)
                     """,
-                    (invoice_number, user_id, month, amount_cents, now_iso()),
+                    (invoice_number, user_id, month, amount_cents, vat_cents, total_cents_row, now_iso()),
                 )
             cur.execute(
                 "INSERT OR REPLACE INTO invoice_sequences (month, next_number) VALUES (?, ?)",

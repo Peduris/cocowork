@@ -3,9 +3,11 @@ const contractorView = document.getElementById("contractorView");
 const adminView = document.getElementById("adminView");
 const logoutBtn = document.getElementById("logoutBtn");
 
-const loginForm = document.getElementById("loginForm");
+const loginContractorForm = document.getElementById("loginContractorForm");
+const loginAdminForm = document.getElementById("loginAdminForm");
 const registerForm = document.getElementById("registerForm");
-const loginError = document.getElementById("loginError");
+const loginContractorError = document.getElementById("loginContractorError");
+const loginAdminError = document.getElementById("loginAdminError");
 const registerError = document.getElementById("registerError");
 
 const profileForm = document.getElementById("profileForm");
@@ -24,6 +26,9 @@ const adminContractContent = document.getElementById("adminContractContent");
 const adminContractorSignature = document.getElementById("adminContractorSignature");
 const adminAdminSignature = document.getElementById("adminAdminSignature");
 const adminSignForm = document.getElementById("adminSignForm");
+const contractorInvoiceTable = document.getElementById("contractorInvoiceTable")?.querySelector("tbody");
+const adminContractEditForm = document.getElementById("adminContractEditForm");
+const adminContractSaved = document.getElementById("adminContractSaved");
 
 const templateForm = document.getElementById("templateForm");
 const templateSaved = document.getElementById("templateSaved");
@@ -55,6 +60,11 @@ function formatAmount(cents) {
   return `$${amount}`;
 }
 
+function getTotal(inv) {
+  if (typeof inv.total_cents === "number" && inv.total_cents > 0) return inv.total_cents;
+  return (inv.amount_cents || 0) + (inv.vat_cents || 0);
+}
+
 async function loadMe() {
   const data = await api("/api/me");
   if (!data.ok) {
@@ -76,7 +86,7 @@ async function loadContractorData(profile) {
   if (profile) {
     for (const [key, value] of Object.entries(profile)) {
       const input = profileForm.querySelector(`[name="${key}"]`);
-      if (input && value) input.value = value;
+      if (input && value !== null && value !== undefined) input.value = value;
     }
   }
   const contract = await api("/api/contract");
@@ -89,11 +99,14 @@ async function loadContractorData(profile) {
   if (invoices.ok) {
     invoiceTable.innerHTML = "";
     invoices.invoices.forEach((inv) => {
+      const total = getTotal(inv);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${inv.invoice_number}</td>
         <td>${inv.month}</td>
         <td>${formatAmount(inv.amount_cents)}</td>
+        <td>${formatAmount(inv.vat_cents || 0)}</td>
+        <td>${formatAmount(total)}</td>
         <td>${inv.status}</td>
       `;
       invoiceTable.appendChild(row);
@@ -138,6 +151,8 @@ async function selectContractor(userId) {
     <p><strong>Company:</strong> ${data.profile?.company_name || "-"}</p>
     <p><strong>Type:</strong> ${data.profile?.company_type || "-"}</p>
     <p><strong>Tax ID/CIN:</strong> ${data.profile?.tax_id || "-"}</p>
+    <p><strong>DPH/VAT payer:</strong> ${data.profile?.vat_payer ? "Yes" : "No"}</p>
+    <p><strong>DPH/VAT rate:</strong> ${data.profile?.vat_rate || 0}%</p>
     <p><strong>Address:</strong> ${data.profile?.address || "-"}</p>
     <p><strong>Phone:</strong> ${data.profile?.phone || "-"}</p>
     <p><strong>Bank:</strong> ${data.profile?.bank_account || "-"}</p>
@@ -145,6 +160,25 @@ async function selectContractor(userId) {
   adminContractContent.textContent = data.contract?.content || "";
   adminContractorSignature.textContent = data.contract?.contractor_signature || "Not signed";
   adminAdminSignature.textContent = data.contract?.admin_signature || "Not signed";
+  if (adminContractEditForm) {
+    adminContractEditForm.querySelector("textarea").value = data.contract?.content || "";
+  }
+  if (contractorInvoiceTable) {
+    contractorInvoiceTable.innerHTML = "";
+    (data.invoices || []).forEach((inv) => {
+      const total = getTotal(inv);
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${inv.invoice_number}</td>
+        <td>${inv.month}</td>
+        <td>${formatAmount(inv.amount_cents)}</td>
+        <td>${formatAmount(inv.vat_cents || 0)}</td>
+        <td>${formatAmount(total)}</td>
+        <td>${inv.status}</td>
+      `;
+      contractorInvoiceTable.appendChild(row);
+    });
+  }
 }
 
 async function loadAdminInvoices() {
@@ -152,12 +186,15 @@ async function loadAdminInvoices() {
   if (!data.ok) return;
   adminInvoiceTable.innerHTML = "";
   data.invoices.forEach((inv) => {
+    const total = getTotal(inv);
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${inv.invoice_number}</td>
       <td>${inv.full_name || inv.company_name || inv.email}</td>
       <td>${inv.month}</td>
       <td>${formatAmount(inv.amount_cents)}</td>
+      <td>${formatAmount(inv.vat_cents || 0)}</td>
+      <td>${formatAmount(total)}</td>
       <td>${inv.status}</td>
       <td><button class="ghost" data-id="${inv.id}">${inv.status === "paid" ? "Mark unpaid" : "Mark paid"}</button></td>
     `;
@@ -172,13 +209,25 @@ async function loadAdminInvoices() {
   });
 }
 
-loginForm?.addEventListener("submit", async (event) => {
+loginContractorForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  loginError.textContent = "";
-  const formData = new FormData(loginForm);
+  loginContractorError.textContent = "";
+  const formData = new FormData(loginContractorForm);
   const res = await api("/api/login", "POST", Object.fromEntries(formData));
   if (!res.ok) {
-    loginError.textContent = res.error || "Login failed";
+    loginContractorError.textContent = res.error || "Login failed";
+    return;
+  }
+  await loadMe();
+});
+
+loginAdminForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  loginAdminError.textContent = "";
+  const formData = new FormData(loginAdminForm);
+  const res = await api("/api/login", "POST", Object.fromEntries(formData));
+  if (!res.ok) {
+    loginAdminError.textContent = res.error || "Login failed";
     return;
   }
   await loadMe();
@@ -230,6 +279,21 @@ adminSignForm?.addEventListener("submit", async (event) => {
   if (res.ok) {
     await selectContractor(selectedContractorId);
     await loadAdminData();
+  }
+});
+
+adminContractEditForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedContractorId) return;
+  adminContractSaved.textContent = "";
+  const formData = new FormData(adminContractEditForm);
+  const payload = Object.fromEntries(formData);
+  payload.user_id = selectedContractorId;
+  payload.reset_signatures = formData.get("reset") === "on";
+  const res = await api("/api/admin/contractor/contract/update", "POST", payload);
+  if (res.ok) {
+    adminContractSaved.textContent = "Contract updated.";
+    await selectContractor(selectedContractorId);
   }
 });
 

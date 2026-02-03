@@ -25,9 +25,10 @@
       <section id="authView" class="card auth-card">
         <div class="auth-columns">
           <div>
-            <h2>Welcome back</h2>
-            <p class="muted">Sign in to view your contract and monthly invoices.</p>
-            <form id="loginForm" class="form">
+            <h2>Contractor login</h2>
+            <p class="muted">Access your contract and monthly invoices.</p>
+            <form id="loginContractorForm" class="form">
+              <input type="hidden" name="role" value="contractor" />
               <label>Email
                 <input type="email" name="email" required />
               </label>
@@ -35,12 +36,11 @@
                 <input type="password" name="password" required />
               </label>
               <button type="submit" class="primary">Log in</button>
-              <p class="form-error" id="loginError"></p>
+              <p class="form-error" id="loginContractorError"></p>
             </form>
-          </div>
-          <div>
-            <h2>New contractor?</h2>
-            <p class="muted">Create an account to start your Cocowork agreement.</p>
+            <div class="note">
+              New contractor? Create an account below.
+            </div>
             <form id="registerForm" class="form">
               <label>Full name
                 <input type="text" name="full_name" required />
@@ -54,8 +54,23 @@
               <button type="submit" class="secondary">Create account</button>
               <p class="form-error" id="registerError"></p>
             </form>
+          </div>
+          <div>
+            <h2>Admin login</h2>
+            <p class="muted">Manage contractors, contracts, and invoices.</p>
+            <form id="loginAdminForm" class="form">
+              <input type="hidden" name="role" value="admin" />
+              <label>Email
+                <input type="email" name="email" required />
+              </label>
+              <label>Password
+                <input type="password" name="password" required />
+              </label>
+              <button type="submit" class="secondary">Log in</button>
+              <p class="form-error" id="loginAdminError"></p>
+            </form>
             <div class="note">
-              Default admin login: <strong>admin@cocowork.local</strong> / <strong>admin123</strong>
+              Default admin: <strong>admin@cocowork.local</strong> / <strong>admin123</strong>
             </div>
           </div>
         </div>
@@ -80,6 +95,15 @@
             </label>
             <label>Tax ID / CIN
               <input type="text" name="tax_id" />
+            </label>
+            <label>DPH / VAT payer
+              <select name="vat_payer">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </label>
+            <label>DPH / VAT rate (%)
+              <input type="number" name="vat_rate" placeholder="21" />
             </label>
             <label>Address
               <input type="text" name="address" />
@@ -121,7 +145,9 @@
               <tr>
                 <th>Invoice</th>
                 <th>Month</th>
-                <th>Amount</th>
+                <th>Base</th>
+                <th>DPH</th>
+                <th>Total</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -155,6 +181,20 @@
               <div>
                 <h3>Profile</h3>
                 <div id="profileDetails"></div>
+                <h3>Invoices</h3>
+                <table class="table" id="contractorInvoiceTable">
+                  <thead>
+                    <tr>
+                      <th>Invoice</th>
+                      <th>Month</th>
+                      <th>Base</th>
+                      <th>DPH</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
               </div>
               <div>
                 <h3>Contract</h3>
@@ -172,6 +212,14 @@
                 <form id="adminSignForm" class="form inline">
                   <input type="text" name="signature" placeholder="Type your name" required />
                   <button type="submit" class="secondary">Sign as Cocowork</button>
+                </form>
+                <form id="adminContractEditForm" class="form">
+                  <textarea name="content" rows="6" placeholder="Edit contractor-specific contract"></textarea>
+                  <label class="checkbox">
+                    <input type="checkbox" name="reset" checked /> Reset signatures after edit
+                  </label>
+                  <button type="submit" class="ghost">Save contract edit</button>
+                  <span id="adminContractSaved" class="form-success"></span>
                 </form>
               </div>
             </div>
@@ -205,16 +253,18 @@
           <div class="subsection">
             <h3>Invoices</h3>
             <table class="table" id="adminInvoiceTable">
-              <thead>
-                <tr>
-                  <th>Invoice</th>
-                  <th>Contractor</th>
-                  <th>Month</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Contractor</th>
+                <th>Month</th>
+                <th>Base</th>
+                <th>DPH</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
               <tbody></tbody>
             </table>
           </div>
