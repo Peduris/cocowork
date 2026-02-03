@@ -393,6 +393,7 @@ class handler(BaseHTTPRequestHandler):
             cur.execute(
                 """
                 SELECT users.id, users.email, profiles.full_name, profiles.company_name,
+                       profiles.vat_payer, profiles.vat_rate,
                        contracts.contractor_signed_at, contracts.admin_signed_at
                 FROM users
                 LEFT JOIN profiles ON profiles.user_id = users.id

@@ -84,6 +84,35 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+.stats-row {
+  display: grid;
+  gap: 16px;
+  margin: 8px 0 24px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.stat-card h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+}
+
 h2, h3 {
   margin-top: 0;
 }
@@ -106,6 +135,14 @@ h2, h3 {
 .form.inline {
   grid-template-columns: 1fr auto;
   align-items: center;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0 8px;
+  gap: 12px;
 }
 
 label {
@@ -202,6 +239,27 @@ button.ghost {
   text-align: left;
   padding: 10px;
   border-bottom: 1px solid var(--border);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f4e1da;
+  color: var(--accent-dark);
+}
+
+.badge.success {
+  background: #d9f3df;
+  color: #1e7a3f;
+}
+
+.badge.warn {
+  background: #fde8c8;
+  color: #9f5b00;
 }
 
 .subsection {

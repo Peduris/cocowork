@@ -76,7 +76,22 @@
         </div>
       </section>
 
-      <section id="contractorView" class="grid" hidden>
+      <section id="contractorView" hidden>
+        <div class="stats-row">
+          <div class="stat-card">
+            <h4>Contract status</h4>
+            <p id="contractStatus" class="stat-value">Pending</p>
+          </div>
+          <div class="stat-card">
+            <h4>Total invoices</h4>
+            <p id="invoiceCount" class="stat-value">0</p>
+          </div>
+          <div class="stat-card">
+            <h4>Unpaid</h4>
+            <p id="invoiceUnpaid" class="stat-value">0</p>
+          </div>
+        </div>
+        <div class="grid">
         <div class="card">
           <h2>Your invoicing profile</h2>
           <p class="muted">Please complete your company or freelancer details.</p>
@@ -140,6 +155,9 @@
 
         <div class="card">
           <h2>Monthly invoices</h2>
+          <div class="toolbar">
+            <input id="invoiceFilter" type="text" placeholder="Filter by month (YYYY-MM)" />
+          </div>
           <table class="table" id="invoiceTable">
             <thead>
               <tr>
@@ -154,17 +172,37 @@
             <tbody></tbody>
           </table>
         </div>
+        </div>
       </section>
 
-      <section id="adminView" class="grid" hidden>
+      <section id="adminView" hidden>
+        <div class="stats-row">
+          <div class="stat-card">
+            <h4>Total contractors</h4>
+            <p id="adminTotalContractors" class="stat-value">0</p>
+          </div>
+          <div class="stat-card">
+            <h4>Signed contracts</h4>
+            <p id="adminSignedContracts" class="stat-value">0</p>
+          </div>
+          <div class="stat-card">
+            <h4>Unpaid invoices</h4>
+            <p id="adminUnpaidInvoices" class="stat-value">0</p>
+          </div>
+        </div>
+        <div class="grid">
         <div class="card">
           <h2>Contractors</h2>
+          <div class="toolbar">
+            <input id="contractorSearch" type="text" placeholder="Search contractor or company" />
+          </div>
           <table class="table" id="contractorTable">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Company</th>
+                <th>DPH</th>
                 <th>Contract</th>
                 <th></th>
               </tr>
@@ -251,23 +289,41 @@
             <span id="invoiceStatus" class="form-success"></span>
           </form>
           <div class="subsection">
-            <h3>Invoices</h3>
-            <table class="table" id="adminInvoiceTable">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Contractor</th>
-                <th>Month</th>
-                <th>Base</th>
-                <th>DPH</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
+            <h3>Split preview</h3>
+            <table class="table" id="splitPreviewTable">
+              <thead>
+                <tr>
+                  <th>Contractor</th>
+                  <th>Base</th>
+                  <th>DPH</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
               <tbody></tbody>
             </table>
           </div>
+          <div class="subsection">
+            <h3>Invoices</h3>
+            <div class="toolbar">
+              <input id="adminInvoiceFilter" type="text" placeholder="Filter by month or name" />
+            </div>
+            <table class="table" id="adminInvoiceTable">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Contractor</th>
+                  <th>Month</th>
+                  <th>Base</th>
+                  <th>DPH</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
         </div>
       </section>
     </main>

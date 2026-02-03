@@ -35,9 +35,22 @@ const templateSaved = document.getElementById("templateSaved");
 const invoiceForm = document.getElementById("invoiceForm");
 const invoiceStatus = document.getElementById("invoiceStatus");
 const adminInvoiceTable = document.getElementById("adminInvoiceTable").querySelector("tbody");
+const splitPreviewTable = document.getElementById("splitPreviewTable")?.querySelector("tbody");
+const invoiceFilter = document.getElementById("invoiceFilter");
+const contractorSearch = document.getElementById("contractorSearch");
+const adminInvoiceFilter = document.getElementById("adminInvoiceFilter");
+const adminTotalContractors = document.getElementById("adminTotalContractors");
+const adminSignedContracts = document.getElementById("adminSignedContracts");
+const adminUnpaidInvoices = document.getElementById("adminUnpaidInvoices");
+const contractStatus = document.getElementById("contractStatus");
+const invoiceCount = document.getElementById("invoiceCount");
+const invoiceUnpaid = document.getElementById("invoiceUnpaid");
 
 let currentUser = null;
 let selectedContractorId = null;
+let cachedContractors = [];
+let cachedInvoices = [];
+let cachedProfile = null;
 
 function api(path, method = "GET", body = null) {
   const options = { method, headers: {} };
@@ -65,6 +78,12 @@ function getTotal(inv) {
   return (inv.amount_cents || 0) + (inv.vat_cents || 0);
 }
 
+function statusBadge(status) {
+  const label = status === "paid" ? "Paid" : "Unpaid";
+  const cls = status === "paid" ? "badge success" : "badge warn";
+  return `<span class="${cls}">${label}</span>`;
+}
+
 async function loadMe() {
   const data = await api("/api/me");
   if (!data.ok) {
@@ -84,6 +103,7 @@ async function loadMe() {
 
 async function loadContractorData(profile) {
   if (profile) {
+    cachedProfile = profile;
     for (const [key, value] of Object.entries(profile)) {
       const input = profileForm.querySelector(`[name="${key}"]`);
       if (input && value !== null && value !== undefined) input.value = value;
@@ -94,50 +114,86 @@ async function loadContractorData(profile) {
     contractContent.textContent = contract.contract.content;
     contractorSignature.textContent = contract.contract.contractor_signature || "Not signed yet";
     adminSignature.textContent = contract.contract.admin_signature || "Pending";
+    if (contractStatus) {
+      const signed = contract.contract.contractor_signed_at && contract.contract.admin_signed_at;
+      contractStatus.textContent = signed ? "Signed" : "Pending";
+    }
   }
   const invoices = await api("/api/invoices");
   if (invoices.ok) {
-    invoiceTable.innerHTML = "";
-    invoices.invoices.forEach((inv) => {
-      const total = getTotal(inv);
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${inv.invoice_number}</td>
-        <td>${inv.month}</td>
-        <td>${formatAmount(inv.amount_cents)}</td>
-        <td>${formatAmount(inv.vat_cents || 0)}</td>
-        <td>${formatAmount(total)}</td>
-        <td>${inv.status}</td>
-      `;
-      invoiceTable.appendChild(row);
-    });
+    cachedInvoices = invoices.invoices || [];
+    renderContractorInvoices();
   }
+}
+
+function renderContractorInvoices() {
+  invoiceTable.innerHTML = "";
+  const list = filterInvoices(cachedInvoices, invoiceFilter?.value || "");
+  invoiceCount.textContent = `${cachedInvoices.length}`;
+  invoiceUnpaid.textContent = `${cachedInvoices.filter((inv) => inv.status !== "paid").length}`;
+  list.forEach((inv) => {
+    const total = getTotal(inv);
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${inv.invoice_number}</td>
+      <td>${inv.month}</td>
+      <td>${formatAmount(inv.amount_cents)}</td>
+      <td>${formatAmount(inv.vat_cents || 0)}</td>
+      <td>${formatAmount(total)}</td>
+      <td>${statusBadge(inv.status)}</td>
+    `;
+    invoiceTable.appendChild(row);
+  });
 }
 
 async function loadAdminData() {
   const contractors = await api("/api/admin/contractors");
   contractorTable.innerHTML = "";
   if (contractors.ok) {
-    contractors.contractors.forEach((contractor) => {
+    cachedContractors = contractors.contractors || [];
+    renderContractorTable();
+    const signedCount = cachedContractors.filter(
+      (c) => c.admin_signed_at && c.contractor_signed_at
+    ).length;
+    if (adminTotalContractors) adminTotalContractors.textContent = `${cachedContractors.length}`;
+    if (adminSignedContracts) adminSignedContracts.textContent = `${signedCount}`;
+  }
+
+  await loadAdminInvoices();
+  await renderSplitPreview();
+}
+
+function renderContractorTable() {
+  contractorTable.innerHTML = "";
+  const term = (contractorSearch?.value || "").toLowerCase();
+  const list = cachedContractors.filter((c) => {
+    if (!term) return true;
+    return (
+      (c.full_name || "").toLowerCase().includes(term) ||
+      (c.company_name || "").toLowerCase().includes(term) ||
+      (c.email || "").toLowerCase().includes(term)
+    );
+  });
+  list.forEach((contractor) => {
       const row = document.createElement("tr");
       const contractStatus = contractor.admin_signed_at && contractor.contractor_signed_at
         ? "Signed"
         : "Pending";
+      const badgeClass = contractStatus === "Signed" ? "badge success" : "badge warn";
+      const vatBadge = contractor.vat_payer ? `Yes (${contractor.vat_rate || 0}%)` : "No";
       row.innerHTML = `
         <td>${contractor.full_name || "-"}</td>
         <td>${contractor.email}</td>
         <td>${contractor.company_name || "-"}</td>
-        <td>${contractStatus}</td>
+        <td>${vatBadge}</td>
+        <td><span class="${badgeClass}">${contractStatus}</span></td>
         <td><button class="ghost" data-id="${contractor.id}">View</button></td>
       `;
       row.querySelector("button").addEventListener("click", () => {
         selectContractor(contractor.id);
       });
       contractorTable.appendChild(row);
-    });
   }
-
-  await loadAdminInvoices();
 }
 
 async function selectContractor(userId) {
@@ -167,25 +223,30 @@ async function selectContractor(userId) {
     contractorInvoiceTable.innerHTML = "";
     (data.invoices || []).forEach((inv) => {
       const total = getTotal(inv);
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${inv.invoice_number}</td>
-        <td>${inv.month}</td>
-        <td>${formatAmount(inv.amount_cents)}</td>
-        <td>${formatAmount(inv.vat_cents || 0)}</td>
-        <td>${formatAmount(total)}</td>
-        <td>${inv.status}</td>
-      `;
-      contractorInvoiceTable.appendChild(row);
-    });
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${inv.invoice_number}</td>
+      <td>${inv.month}</td>
+      <td>${formatAmount(inv.amount_cents)}</td>
+      <td>${formatAmount(inv.vat_cents || 0)}</td>
+      <td>${formatAmount(total)}</td>
+      <td>${statusBadge(inv.status)}</td>
+    `;
+    contractorInvoiceTable.appendChild(row);
+  });
   }
 }
 
 async function loadAdminInvoices() {
   const data = await api("/api/invoices");
   if (!data.ok) return;
+  cachedInvoices = data.invoices || [];
+  const list = filterAdminInvoices(cachedInvoices, adminInvoiceFilter?.value || "");
   adminInvoiceTable.innerHTML = "";
-  data.invoices.forEach((inv) => {
+  if (adminUnpaidInvoices) {
+    adminUnpaidInvoices.textContent = `${cachedInvoices.filter((inv) => inv.status !== "paid").length}`;
+  }
+  list.forEach((inv) => {
     const total = getTotal(inv);
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -195,7 +256,7 @@ async function loadAdminInvoices() {
       <td>${formatAmount(inv.amount_cents)}</td>
       <td>${formatAmount(inv.vat_cents || 0)}</td>
       <td>${formatAmount(total)}</td>
-      <td>${inv.status}</td>
+      <td>${statusBadge(inv.status)}</td>
       <td><button class="ghost" data-id="${inv.id}">${inv.status === "paid" ? "Mark unpaid" : "Mark paid"}</button></td>
     `;
     row.querySelector("button").addEventListener("click", async () => {
@@ -207,6 +268,64 @@ async function loadAdminInvoices() {
     });
     adminInvoiceTable.appendChild(row);
   });
+}
+
+function filterInvoices(list, term) {
+  const t = term.trim().toLowerCase();
+  if (!t) return list;
+  return list.filter((inv) => (inv.month || "").toLowerCase().includes(t));
+}
+
+function filterAdminInvoices(list, term) {
+  const t = term.trim().toLowerCase();
+  if (!t) return list;
+  return list.filter((inv) => {
+    return (
+      (inv.month || "").toLowerCase().includes(t) ||
+      (inv.full_name || "").toLowerCase().includes(t) ||
+      (inv.company_name || "").toLowerCase().includes(t) ||
+      (inv.email || "").toLowerCase().includes(t)
+    );
+  });
+}
+
+async function renderSplitPreview() {
+  if (!splitPreviewTable) return;
+  splitPreviewTable.innerHTML = "";
+  const month = invoiceForm?.querySelector("input[name=\"month\"]")?.value || "";
+  const totalAmount = invoiceForm?.querySelector("input[name=\"total_amount\"]")?.value || "";
+  if (!month || !totalAmount || cachedContractors.length === 0) return;
+  const totalCents = parseAmount(totalAmount);
+  if (totalCents === null) return;
+  const count = cachedContractors.length;
+  const base = Math.floor(totalCents / count);
+  const remainder = totalCents % count;
+  cachedContractors.forEach((c, idx) => {
+    const baseCents = base + (idx < remainder ? 1 : 0);
+    const vatRate = Number(c.vat_rate || 0);
+    const vatCents = c.vat_payer ? Math.floor(baseCents * vatRate / 100) : 0;
+    const total = baseCents + vatCents;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${c.full_name || c.company_name || c.email}</td>
+      <td>${formatAmount(baseCents)}</td>
+      <td>${formatAmount(vatCents)}</td>
+      <td>${formatAmount(total)}</td>
+    `;
+    splitPreviewTable.appendChild(row);
+  });
+}
+
+function parseAmount(value) {
+  if (!value) return null;
+  const cleaned = value.replace("$", "").trim();
+  if (!cleaned) return null;
+  const parts = cleaned.split(".");
+  if (parts.length > 2) return null;
+  const whole = parseInt(parts[0] || "0", 10);
+  const frac = (parts[1] || "0").padEnd(2, "0").slice(0, 2);
+  if (Number.isNaN(whole)) return null;
+  return whole * 100 + parseInt(frac, 10);
 }
 
 loginContractorForm?.addEventListener("submit", async (event) => {
@@ -317,9 +436,25 @@ invoiceForm?.addEventListener("submit", async (event) => {
   if (res.ok) {
     invoiceStatus.textContent = "Invoices generated.";
     await loadAdminInvoices();
+    await renderSplitPreview();
   } else {
     invoiceStatus.textContent = res.error || "Failed to generate";
   }
 });
+
+invoiceFilter?.addEventListener("input", () => {
+  renderContractorInvoices();
+});
+
+contractorSearch?.addEventListener("input", () => {
+  renderContractorTable();
+});
+
+adminInvoiceFilter?.addEventListener("input", () => {
+  loadAdminInvoices();
+});
+
+invoiceForm?.querySelector("input[name=\"month\"]")?.addEventListener("input", renderSplitPreview);
+invoiceForm?.querySelector("input[name=\"total_amount\"]")?.addEventListener("input", renderSplitPreview);
 
 loadMe();
