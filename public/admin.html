@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cocowork | Contracts & Invoices</title>
+  <title>Cocowork Admin | Contracts & Invoices</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
-<body data-portal="contractor">
+<body data-portal="admin">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
@@ -15,8 +15,8 @@
           <h1>Cocowork</h1>
           <p>Open Office Tables • Contracts • Invoices</p>
           <div class="portal-switch">
-            <a class="ghost-link active" href="/">Contractor Portal</a>
-            <a class="ghost-link" href="/admin.html">Admin Portal</a>
+            <a class="ghost-link" href="/">Contractor Portal</a>
+            <a class="ghost-link active" href="/admin.html">Admin Portal</a>
           </div>
         </div>
       </div>
@@ -29,149 +29,36 @@
       <section id="authView" class="card auth-card">
         <div class="auth-columns">
           <div>
-            <h2>Contractor login</h2>
-            <p class="muted">Access your contract and monthly invoices.</p>
-            <form id="loginContractorForm" class="form">
-              <input type="hidden" name="role" value="contractor" />
+            <h2>Admin login</h2>
+            <p class="muted">Manage contractors, contracts, and invoices.</p>
+            <form id="loginAdminForm" class="form">
+              <input type="hidden" name="role" value="admin" />
               <label>Email
                 <input type="email" name="email" required />
               </label>
               <label>Password
                 <input type="password" name="password" required />
               </label>
-              <button type="submit" class="primary">Log in</button>
-              <p class="form-error" id="loginContractorError"></p>
+              <button type="submit" class="secondary">Log in</button>
+              <p class="form-error" id="loginAdminError"></p>
             </form>
             <div class="note">
-              New contractor? Create an account below.
+              Default admin: <strong>admin@cocowork.local</strong> / <strong>admin123</strong>
             </div>
-            <form id="registerForm" class="form">
-              <label>Full name
-                <input type="text" name="full_name" required />
-              </label>
-              <label>Email
-                <input type="email" name="email" required />
-              </label>
-              <label>Password
-                <input type="password" name="password" required />
-              </label>
-              <button type="submit" class="secondary">Create account</button>
-              <p class="form-error" id="registerError"></p>
-            </form>
           </div>
           <div>
-            <h2>What you can do</h2>
-            <p class="muted">Everything you need for monthly invoicing.</p>
+            <h2>Admin overview</h2>
+            <p class="muted">Track contracts, generate invoices, and split totals with DPH.</p>
             <ul class="plain-list">
-              <li>Update your invoicing profile</li>
-              <li>Review and sign your contract</li>
-              <li>Track monthly invoices and payment status</li>
+              <li>Contractor list and profiles</li>
+              <li>Contract edit + signature</li>
+              <li>Invoice generation and payment tracking</li>
             </ul>
-            <div class="note">
-              Admins should use the Admin Portal link above.
-            </div>
           </div>
         </div>
       </section>
 
-      <section id="contractorView" hidden>
-        <div class="stats-row">
-          <div class="stat-card">
-            <h4>Contract status</h4>
-            <p id="contractStatus" class="stat-value">Pending</p>
-          </div>
-          <div class="stat-card">
-            <h4>Total invoices</h4>
-            <p id="invoiceCount" class="stat-value">0</p>
-          </div>
-          <div class="stat-card">
-            <h4>Unpaid</h4>
-            <p id="invoiceUnpaid" class="stat-value">0</p>
-          </div>
-        </div>
-        <div class="grid">
-        <div class="card">
-          <h2>Your invoicing profile</h2>
-          <p class="muted">Please complete your company or freelancer details.</p>
-          <form id="profileForm" class="form two-cols">
-            <label>Full name
-              <input type="text" name="full_name" />
-            </label>
-            <label>Company type
-              <select name="company_type">
-                <option value="freelancer">Freelancer</option>
-                <option value="company">Company</option>
-              </select>
-            </label>
-            <label>Company / Freelance name
-              <input type="text" name="company_name" />
-            </label>
-            <label>Tax ID / CIN
-              <input type="text" name="tax_id" />
-            </label>
-            <label>DPH / VAT payer
-              <select name="vat_payer">
-                <option value="0">No</option>
-                <option value="1">Yes</option>
-              </select>
-            </label>
-            <label>DPH / VAT rate (%)
-              <input type="number" name="vat_rate" placeholder="21" />
-            </label>
-            <label>Address
-              <input type="text" name="address" />
-            </label>
-            <label>Phone
-              <input type="text" name="phone" />
-            </label>
-            <label>Bank account
-              <input type="text" name="bank_account" />
-            </label>
-            <button type="submit" class="primary">Save profile</button>
-            <span class="form-success" id="profileSaved"></span>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>Your contract</h2>
-          <pre id="contractContent" class="contract"></pre>
-          <div class="sign-row">
-            <div>
-              <p class="muted">Contractor signature</p>
-              <p id="contractorSignature" class="signature"></p>
-            </div>
-            <div>
-              <p class="muted">Cocowork signature</p>
-              <p id="adminSignature" class="signature"></p>
-            </div>
-          </div>
-          <form id="contractSignForm" class="form inline">
-            <input type="text" name="signature" placeholder="Type full name to sign" required />
-            <button type="submit" class="secondary">Sign contract</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>Monthly invoices</h2>
-          <div class="toolbar">
-            <input id="invoiceFilter" type="text" placeholder="Filter by month (YYYY-MM)" />
-          </div>
-          <table class="table" id="invoiceTable">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Month</th>
-                <th>Base</th>
-                <th>DPH</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        </div>
-      </section>
+      <section id="contractorView" hidden></section>
 
       <section id="adminView" hidden>
         <div class="stats-row">

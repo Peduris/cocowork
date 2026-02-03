@@ -50,6 +50,29 @@ body {
   font-size: 14px;
 }
 
+.portal-switch {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.ghost-link {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--bg-alt);
+}
+
+.ghost-link.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .logo {
   width: 56px;
   height: 56px;
@@ -203,6 +226,13 @@ button.ghost {
   border-radius: 12px;
   margin-top: 16px;
   font-size: 13px;
+}
+
+.plain-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .contract {

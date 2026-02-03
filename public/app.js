@@ -34,7 +34,7 @@ const templateForm = document.getElementById("templateForm");
 const templateSaved = document.getElementById("templateSaved");
 const invoiceForm = document.getElementById("invoiceForm");
 const invoiceStatus = document.getElementById("invoiceStatus");
-const adminInvoiceTable = document.getElementById("adminInvoiceTable").querySelector("tbody");
+const adminInvoiceTable = document.getElementById("adminInvoiceTable")?.querySelector("tbody");
 const splitPreviewTable = document.getElementById("splitPreviewTable")?.querySelector("tbody");
 const invoiceFilter = document.getElementById("invoiceFilter");
 const contractorSearch = document.getElementById("contractorSearch");
@@ -45,6 +45,7 @@ const adminUnpaidInvoices = document.getElementById("adminUnpaidInvoices");
 const contractStatus = document.getElementById("contractStatus");
 const invoiceCount = document.getElementById("invoiceCount");
 const invoiceUnpaid = document.getElementById("invoiceUnpaid");
+const portal = document.body?.dataset?.portal || "contractor";
 
 let currentUser = null;
 let selectedContractorId = null;
@@ -92,6 +93,14 @@ async function loadMe() {
     return;
   }
   currentUser = data.user;
+  if (currentUser.role === "admin" && portal !== "admin") {
+    window.location.href = "/admin.html";
+    return;
+  }
+  if (currentUser.role === "contractor" && portal === "admin") {
+    window.location.href = "/";
+    return;
+  }
   if (currentUser.role === "admin") {
     show("admin");
     await loadAdminData();
@@ -238,6 +247,7 @@ async function selectContractor(userId) {
 }
 
 async function loadAdminInvoices() {
+  if (!adminInvoiceTable) return;
   const data = await api("/api/invoices");
   if (!data.ok) return;
   cachedInvoices = data.invoices || [];
